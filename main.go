@@ -67,9 +67,9 @@ func loadConfig() *Config {
 		Port:              getEnv("PORT", "8808"),
 		InactivityTimeout: getDurationEnv("INACTIVITY_TIMEOUT", 90) * time.Second,
 		LogLevel:          getEnv("LOG_LEVEL", "INFO"),
-		GoogleProjectID:   getEnv("GOOGLE_PROJECT_ID", ""),
-		GCEZone:           getEnv("GCE_ZONE", ""),
-		GCEInstance:       getEnv("GCE_INSTANCE", ""),
+		GoogleProjectID:   getEnv("GCP_PROJECT", ""),
+		GCEZone:           getEnv("GCP_ZONE", ""),
+		GCEInstance:       getEnv("GCP_INSTANCE_NAME", ""),
 		LibOpsKeepOnline:  getEnv("LIBOPS_KEEP_ONLINE", ""),
 	}
 }

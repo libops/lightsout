@@ -1,27 +1,27 @@
-FROM golang:1.25-alpine3.22 AS builder
+FROM ghcr.io/libops/go1.25:main@sha256:f43c9b34f888d2ac53e87c8e061554f826b8eb580863d7b21fd787b6f0378f8f AS builder
+
+SHELL ["/bin/ash", "-o", "pipefail", "-ex", "-c"]
 
 WORKDIR /app
+
 COPY go.* ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o lightsout .
+COPY *.go ./
 
-FROM alpine:3.22
-RUN apk --no-cache add ca-certificates curl docker-cli
-WORKDIR /root/
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -ldflags="-s -w" -o /app/binary .
 
-COPY --from=builder /app/lightsout .
+FROM ghcr.io/libops/go1.25:main@sha256:f43c9b34f888d2ac53e87c8e061554f826b8eb580863d7b21fd787b6f0378f8f
 
-# Set default environment variables
-ENV PORT=8808
-ENV INACTIVITY_TIMEOUT=90
-ENV LOG_LEVEL=INFO
-ENV GOOGLE_PROJECT_ID=""
-ENV GCE_ZONE=""
-ENV GCE_INSTANCE=""
-ENV LIBOPS_KEEP_ONLINE=""
+COPY --from=builder /app/binary /app/binary
 
-EXPOSE 8808
-
-CMD ["/app/lightsout"]
+ENV \
+    PORT=8808 \
+    INACTIVITY_TIMEOUT=90 \
+    LOG_LEVEL=INFO \
+    GCP_PROJECT= \
+    GCP_ZONE= \
+    GCP_INSTANCE_NAME= \
+    LIBOPS_KEEP_ONLINE=
