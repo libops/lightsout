@@ -363,11 +363,6 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte("healthy")); err != nil {
-		slog.Error("Failed to write health response", "error", err)
-		http.Error(w, "Failed to write response", http.StatusInternalServerError)
-		return
-	}
 }
 
 func main() {
@@ -384,7 +379,7 @@ func main() {
 
 	// Setup HTTP handlers
 	http.HandleFunc("/ping", pingHandler)
-	http.HandleFunc("/health", healthHandler)
+	http.HandleFunc("/healthcheck", healthHandler)
 
 	// Setup HTTP server
 	server := &http.Server{

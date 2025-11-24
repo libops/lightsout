@@ -221,17 +221,13 @@ func TestHealthEndpoint(t *testing.T) {
 	cleanup := setupTestEnvironment()
 	defer cleanup()
 
-	req := httptest.NewRequest("GET", "/health", nil)
+	req := httptest.NewRequest("GET", "/healthcheck", nil)
 	w := httptest.NewRecorder()
 
 	healthHandler(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("Expected status 200, got %d", w.Code)
-	}
-
-	if w.Body.String() != "healthy" {
-		t.Fatalf("Expected 'healthy', got '%s'", w.Body.String())
 	}
 
 	if w.Header().Get("Content-Type") != "text/plain" {

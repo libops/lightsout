@@ -4,7 +4,7 @@ A lightweight Go service that combines ping health checks with power management 
 
 ## Features
 
-- **HTTP Health Endpoints**: `/ping` (monitored) and `/health` (healthcheck)
+- **HTTP Health Endpoints**: `/ping` (monitored) and `/healthcheck`
 - **Activity Monitoring**: Tracks requests to `/ping` endpoint
 - **Configurable Timeouts**: Environment-controlled inactivity periods
 - **GCP Integration**: Automatic instance suspension via GCP API service
@@ -24,14 +24,13 @@ docker run -p 8808:8808 -e INACTIVITY_TIMEOUT=90 lightswitch:latest
 | `PORT`               | `8808`  | HTTP server port                         |
 | `INACTIVITY_TIMEOUT` | `90`    | Seconds of inactivity before shutdown    |
 | `CHECK_INTERVAL`     | `30`    | Seconds between activity checks          |
-| `LIBOPS_PROXY_URL`   | -       | GCP proxy URL for suspension             |
 | `LIBOPS_KEEP_ONLINE` | -       | Set to "yes" to disable auto-shutdown    |
 | `LOG_LEVEL`          | `INFO`  | Logging level (DEBUG, INFO, WARN, ERROR) |
 
 ### Endpoints
 
 - `GET /ping` - Returns "pong", activity is logged and monitored
-- `GET /health` - Returns "healthy", used for container healthchecks
+- `GET /healthcheck` - used for container healthchecks
 
 ## Integration
 
@@ -43,7 +42,7 @@ This service is designed to work in tandem with [ppb (Proxy Power Button)](https
    - Receives incoming requests for dormant instances
    - Starts the GCE instance via GCP API
    - Proxies requests to the now-running backend
-   
+
 2. **lightsout (Shutdown)**: Monitors activity and automatically shuts down instances during idle periods
    - Tracks activity via `/ping` endpoint calls
    - Monitors for configurable inactivity timeouts
