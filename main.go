@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +13,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"golang.org/x/oauth2/google"
+	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/option"
 )
 
 type Config struct {
@@ -24,16 +27,6 @@ type Config struct {
 	GoogleProjectID   string
 	GCEZone           string
 	GCEInstance       string
-}
-
-type AccessToken struct {
-	AccessToken string `json:"access_token"`
-	ExpiresIn   int    `json:"expires_in"`
-	TokenType   string `json:"token_type"`
-}
-
-type ComputeInstance struct {
-	Status string `json:"status"`
 }
 
 type ActivityTracker struct {
@@ -162,115 +155,57 @@ func getLastGitHubActionsActivity() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("could not parse github-actions timestamp")
 }
 
-func getAccessToken() (AccessToken, error) {
-	t := AccessToken{}
-
-	req, err := http.NewRequest("GET", "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token", nil)
+func createComputeService(ctx context.Context) (*compute.Service, error) {
+	// Use Application Default Credentials (ADC)
+	// This will automatically use:
+	// 1. GOOGLE_APPLICATION_CREDENTIALS environment variable
+	// 2. GCE metadata server (when running on GCE)
+	// 3. gcloud CLI credentials
+	creds, err := google.FindDefaultCredentials(ctx, compute.ComputeScope)
 	if err != nil {
-		return t, err
+		return nil, fmt.Errorf("failed to find default credentials: %w", err)
 	}
-	req.Header.Set("Metadata-Flavor", "Google")
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	service, err := compute.NewService(ctx, option.WithCredentials(creds))
 	if err != nil {
-		return t, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return t, fmt.Errorf("fetching token non-200: %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to create compute service: %w", err)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&t); err != nil {
-		return t, fmt.Errorf("failed to decode token response: %w", err)
-	}
-	return t, nil
+	return service, nil
 }
 
-func getMachineMetadata(token AccessToken, targetURL string) (ComputeInstance, error) {
-	vm := ComputeInstance{}
-
-	req, err := http.NewRequest("GET", targetURL, nil)
-	if err != nil {
-		return vm, err
-	}
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return vm, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return vm, fmt.Errorf("getMachineMetadata non-200: %d", resp.StatusCode)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&vm); err != nil {
-		return vm, fmt.Errorf("failed to decode instance metadata: %w", err)
-	}
-	return vm, nil
-}
-
-func performInstanceAction(token AccessToken, targetURL, action string) error {
-	actionURL := targetURL + "/" + action
-
-	req, err := http.NewRequest("POST", actionURL, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("performInstanceAction non-200: %d", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func suspendMachine() (ComputeInstance, error) {
-	targetURL := fmt.Sprintf("https://compute.googleapis.com/compute/v1/projects/%s/zones/%s/instances/%s",
-		config.GoogleProjectID, config.GCEZone, config.GCEInstance)
+func suspendMachine() (*compute.Instance, error) {
+	ctx := context.Background()
 
 	slog.Info("Checking if machine is suspended",
 		"project", config.GoogleProjectID,
 		"zone", config.GCEZone,
 		"instance", config.GCEInstance)
 
-	// get access token
-	t, err := getAccessToken()
+	// Create compute service with default credentials
+	service, err := createComputeService(ctx)
 	if err != nil {
-		return ComputeInstance{}, fmt.Errorf("getAccessToken: %v", err)
+		return nil, fmt.Errorf("createComputeService: %v", err)
 	}
 
-	// get machine metadata
-	vm, err := getMachineMetadata(t, targetURL)
+	// Get instance details
+	instance, err := service.Instances.Get(config.GoogleProjectID, config.GCEZone, config.GCEInstance).Context(ctx).Do()
 	if err != nil {
-		return vm, fmt.Errorf("getMachineMetadata: %v", err)
+		return nil, fmt.Errorf("failed to get instance: %v", err)
 	}
 
-	// if the machine is running, suspend it
-	if vm.Status == "RUNNING" {
-		action := "suspend"
+	// If the machine is running, suspend it
+	if instance.Status == "RUNNING" {
 		slog.Info("Instance is RUNNING, suspending instance")
-		err := performInstanceAction(t, targetURL, action)
+		_, err := service.Instances.Suspend(config.GoogleProjectID, config.GCEZone, config.GCEInstance).Context(ctx).Do()
 		if err != nil {
-			return vm, fmt.Errorf("performInstanceAction: %v", err)
+			return instance, fmt.Errorf("failed to suspend instance: %v", err)
 		}
 	} else {
-		slog.Info("Instance is not RUNNING, skipping suspension", "status", vm.Status)
+		slog.Info("Instance is not RUNNING, skipping suspension", "status", instance.Status)
 	}
 
-	return vm, nil
+	return instance, nil
 }
 
 func suspendInstance() error {
