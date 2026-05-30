@@ -7,15 +7,15 @@ jobs:
   lint-test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
           go-version-file: "go.mod"
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601 # v9
+        uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9
         with:
           version: latest
 
@@ -40,7 +40,7 @@ jobs:
 
   run:
     needs: [lint-test]
-    uses: libops/.github/.github/workflows/build-push-ghcr.yaml@main
+    uses: libops/.github/.github/workflows/build-push-ghcr.yaml@d7f0ba06b4c8a1f8559892ea65a0b1af4d024dd3 # main
     permissions:
       contents: read
       packages: write
