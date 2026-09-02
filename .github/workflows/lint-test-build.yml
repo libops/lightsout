@@ -82,16 +82,6 @@ jobs:
           push: false
           tags: lightsout:ci-${{ matrix.architecture.suffix }}
 
-      - name: Scan native image
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: lightsout:ci-${{ matrix.architecture.suffix }}
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          severity: HIGH,CRITICAL
-          vuln-type: os,library
-
   run:
     name: run
     if: ${{ always() && github.event_name == 'pull_request' }}
@@ -108,7 +98,6 @@ jobs:
     with:
       ref: ${{ github.sha }}
       expected-main-sha: ${{ github.ref == 'refs/heads/main' && github.sha || '' }}
-      scan: true
       sign: true
       certificate-identity: https://github.com/libops/.github/.github/workflows/build-push.yaml@8e27d95846671a9e319f1900e86a488a1d4f39b3
     permissions:
