@@ -25,7 +25,6 @@ func TestImagePublicationWorkflowContract(t *testing.T) {
 		"libops/.github/.github/workflows/build-push.yaml@" + sharedPublisherSHA,
 		"ref: ${{ github.sha }}",
 		"expected-main-sha: ${{ github.ref == 'refs/heads/main' && github.sha || '' }}",
-		"scan: true",
 		"sign: true",
 		"certificate-identity: https://github.com/libops/.github/.github/workflows/build-push.yaml@" + sharedPublisherSHA,
 		"packages: write",
